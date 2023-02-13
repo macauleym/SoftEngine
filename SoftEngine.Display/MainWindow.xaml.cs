@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using SharpDX;
@@ -18,6 +19,7 @@ public partial class MainWindow : Window
     Device device;
     Mesh[] meshes;
     Camera camera;
+    DateTime previousFrameTime;
 
     ILoadMesh meshLoader;
     
@@ -58,7 +60,16 @@ public partial class MainWindow : Window
         CompositionTarget.Rendering += CompositionTarget_Rendering;
     }
 
-    void CompositionTarget_Rendering(object sender, object e)
+    void ComputeFps()
+    {
+        var now = DateTime.Now;
+        var currentFps = 1000.0 / (now - previousFrameTime).TotalMilliseconds;
+        previousFrameTime = now;
+
+        fps.Text = string.Format($"{currentFps:0:0.00} FPS");
+    }
+    
+    void RenderLoop()
     {
         device.Clear(0, 0, 0, 255);
 
@@ -66,10 +77,10 @@ public partial class MainWindow : Window
         {
             // Rotating the mesh slightly during each frame.
             mesh.Rotation = new Vector3(
-                  mesh.Rotation.X + 0.01f
-                , mesh.Rotation.Y + 0.01f
-                , mesh.Rotation.Z
-                );
+              mesh.Rotation.X + 0.01f
+            , mesh.Rotation.Y + 0.01f
+            , mesh.Rotation.Z
+            );
         }
 
         // Do the require matrix transformations.
@@ -77,5 +88,11 @@ public partial class MainWindow : Window
 
         // Flush the back buffer to the front.
         device.Present();
+    }
+    
+    void CompositionTarget_Rendering(object sender, object e)
+    {
+        ComputeFps();
+        RenderLoop();
     }
 }

@@ -10,6 +10,7 @@
     Loaded="Page_Loaded">
     
     <Grid>
+        <TextBlock x:Name="fps"></TextBlock>
         <Image x:Name="frontBuffer" />
     </Grid>
 </Window>
