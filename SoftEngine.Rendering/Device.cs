@@ -2,7 +2,7 @@
 using System.Windows;
 using System.Windows.Media.Imaging;
 using SharpDX;
-using SoftEngine.Core.Models;
+using SoftEngine.Models;
 using SoftEngine.Core.Extensions;
 using SoftEngine.Interfaces.Core.Transformation;
 

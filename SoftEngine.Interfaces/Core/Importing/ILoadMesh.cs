@@ -1,4 +1,4 @@
-﻿using SoftEngine.Core.Models;
+﻿using SoftEngine.Models;
 
 namespace SoftEngine.Interfaces.Core.Importing
 {

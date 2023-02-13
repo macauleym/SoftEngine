@@ -3,8 +3,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using SharpDX;
 using SoftEngine.Core.Importing;
-using SoftEngine.Core.Models;
 using SoftEngine.Interfaces.Core.Importing;
+using SoftEngine.Models;
 using SoftEngine.Rendering;
 using SoftEngine.Rendering.Transformation;
 

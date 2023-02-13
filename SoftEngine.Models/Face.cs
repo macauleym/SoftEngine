@@ -1,9 +1,8 @@
-﻿namespace SoftEngine.Core
+﻿namespace SoftEngine.Models;
+
+public struct Face
 {
-    public struct Face
-    {
-        public int A;
-        public int B;
-        public int C;
-    }
+    public int A;
+    public int B;
+    public int C;
 }
