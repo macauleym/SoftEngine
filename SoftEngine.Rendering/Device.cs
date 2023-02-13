@@ -19,19 +19,25 @@ public class Device
     // to a 2D array (the screen).
     const int coordOffset = 255;
     
-    byte[] backBuffer;
-    WriteableBitmap bitMap;
-    IBuildMatrixTransform matrixBuilder;
+    readonly byte[] backBuffer;
+    readonly float[] depthBuffer;
+    readonly WriteableBitmap bitMap;
+    readonly int renderWidth;
+    readonly int renderHeight;
+    readonly IBuildMatrixTransform matrixBuilder;
     
     public Device(WriteableBitmap bmp, IBuildMatrixTransform matrixTransformBuilder)
     {
-        bitMap = bmp;
+        bitMap        = bmp;
+        renderWidth   = bitMap.PixelWidth;
+        renderHeight  = bitMap.PixelHeight;
         matrixBuilder = matrixTransformBuilder;
         
         // The back buffer's size is the number of pixels we want to draw
         // onto the screen.
-        var bufferSize = bitMap.PixelWidth * bitMap.PixelHeight * pixelValueCount;
-        backBuffer = new byte[bufferSize];
+        var bufferSize = renderWidth * renderHeight * pixelValueCount;
+        backBuffer     = new byte[bufferSize];
+        depthBuffer    = new float[renderWidth * renderHeight];
     }
 
     /// <summary>
@@ -43,14 +49,19 @@ public class Device
     /// <param name="a">ALPHA byte</param>
     public void Clear(byte r, byte g, byte b, byte a)
     {
-        for (var i = 0; i < backBuffer.Length; i += 4)
+        // Clear the back buffer.
+        for (var backIndex = 0; backIndex < backBuffer.Length; backIndex += pixelValueCount)
         {
             // Windows uses the BGRA format.
-            backBuffer[i] = b;
-            backBuffer[i + 1] = g;
-            backBuffer[i + 2] = r;
-            backBuffer[i + 3] = a;
+            backBuffer[backIndex    ] = b;
+            backBuffer[backIndex + 1] = g;
+            backBuffer[backIndex + 2] = r;
+            backBuffer[backIndex + 3] = a;
         }
+        
+        // Clear the depth buffer.
+        for (var depthIndex = 0; depthIndex < depthBuffer.Length; depthIndex++)
+            depthBuffer[depthIndex] = float.MaxValue;
     }
 
     /// <summary>
@@ -72,19 +83,26 @@ public class Device
 
     /// <summary>
     /// Put a specific pixel of a given color on the screen
-    /// at the given x,y coordinates.
+    /// at the given x,y coordinates, and z depth.
     /// </summary>
     /// <param name="x">X screen coordinate.</param>
     /// <param name="y">Y screen coordinate.</param>
+    /// <param name="z">Z depth.</param>
     /// <param name="color">Color to draw the point as.</param>
-    public void PutPixel(int x, int y, Color4 color)
+    public void PutPixel(int x, int y, float z, Color4 color)
     {
-        var index = (x + y * bitMap.PixelWidth) * pixelValueCount;
+        var index           = x + y * renderWidth;
+        var indexWithPixelCount = index * pixelValueCount;
 
-        backBuffer[index]     = (byte)(color.Blue  * coordOffset);
-        backBuffer[index + 1] = (byte)(color.Green * coordOffset);
-        backBuffer[index + 2] = (byte)(color.Red   * coordOffset);
-        backBuffer[index + 3] = (byte)(color.Alpha * coordOffset);
+        if (depthBuffer[index] < z)
+            return;
+
+        depthBuffer[index] = z;
+
+        backBuffer[indexWithPixelCount    ] = (byte)(color.Blue  * coordOffset);
+        backBuffer[indexWithPixelCount + 1] = (byte)(color.Green * coordOffset);
+        backBuffer[indexWithPixelCount + 2] = (byte)(color.Red   * coordOffset);
+        backBuffer[indexWithPixelCount + 3] = (byte)(color.Alpha * coordOffset);
     }
 
     /// <summary>
@@ -116,10 +134,11 @@ public class Device
     /// <param name="color">The color to draw the point as.</param>
     public void DrawPoint(Vector3 point, Color4 color)
     {
-        if (point.IsInRangeOf(bitMap.PixelWidth, bitMap.PixelHeight))
+        if (point.IsInRangeOf(renderWidth, renderHeight))
             PutPixel(
               (int)point.X
             , (int)point.Y
+            , point.Z
             , color
             );
     }
@@ -214,9 +233,18 @@ public class Device
         var startX = (int)pointA.X.InterpolateTo(pointB.X, gradiant1);
         var endX   = (int)pointC.X.InterpolateTo(pointD.X, gradiant2);
         
+        // Account for the Z depth of the line/face.
+        // Start and end Z values.
+        var startZ = pointA.Z.InterpolateTo(pointB.Z, gradiant1);
+        var endZ   = pointC.Z.InterpolateTo(pointD.Z, gradiant2);  
+        
         // Draw a line from left (startX) to right (endX).
         for (var currentX = startX; currentX < endX; currentX++)
-            DrawPoint(new Vector3(currentX, currentY, 0f), color);
+        {
+            var gradiantZ = (currentX - startX) / (float)(endX - startX);
+            var currentZ = startZ.InterpolateTo(endZ, gradiantZ);
+            DrawPoint(new Vector3(currentX, currentY, currentZ), color);
+        }
     }
 
     public void DrawTriangle(

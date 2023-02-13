@@ -1,5 +1,5 @@
 ﻿using SharpDX;
-using SoftEngine.Core.Models;
+using SoftEngine.Models;
 using SoftEngine.Interfaces.Core.Transformation;
 
 using MatrixDX = SharpDX.Matrix;
