@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using SharpDX;
@@ -21,6 +22,7 @@ public class Device
     
     readonly byte[] backBuffer;
     readonly float[] depthBuffer;
+    readonly object[] lockBuffer;
     readonly WriteableBitmap bitMap;
     readonly int renderWidth;
     readonly int renderHeight;
@@ -38,6 +40,9 @@ public class Device
         var bufferSize = renderWidth * renderHeight * pixelValueCount;
         backBuffer     = new byte[bufferSize];
         depthBuffer    = new float[renderWidth * renderHeight];
+        lockBuffer     = new object[renderWidth * renderHeight];
+        for (var i = 0; i < lockBuffer.Length; i++)
+            lockBuffer[i] = new();
     }
 
     /// <summary>
@@ -73,11 +78,11 @@ public class Device
             new Int32Rect
             ( 0
             , 0
-            , bitMap.PixelWidth
-            , bitMap.PixelHeight
+            , renderWidth
+            , renderHeight
             )
         , backBuffer
-        , bitMap.PixelWidth * pixelValueCount
+        , renderWidth * pixelValueCount
         , 0
         );
 
@@ -94,15 +99,18 @@ public class Device
         var index           = x + y * renderWidth;
         var indexWithPixelCount = index * pixelValueCount;
 
-        if (depthBuffer[index] < z)
-            return;
+        lock (lockBuffer[index])
+        {
+            if (depthBuffer[index] < z)
+                return;
 
-        depthBuffer[index] = z;
+            depthBuffer[index] = z;
 
-        backBuffer[indexWithPixelCount    ] = (byte)(color.Blue  * coordOffset);
-        backBuffer[indexWithPixelCount + 1] = (byte)(color.Green * coordOffset);
-        backBuffer[indexWithPixelCount + 2] = (byte)(color.Red   * coordOffset);
-        backBuffer[indexWithPixelCount + 3] = (byte)(color.Alpha * coordOffset);
+            backBuffer[indexWithPixelCount] = (byte)(color.Blue * coordOffset);
+            backBuffer[indexWithPixelCount + 1] = (byte)(color.Green * coordOffset);
+            backBuffer[indexWithPixelCount + 2] = (byte)(color.Red * coordOffset);
+            backBuffer[indexWithPixelCount + 3] = (byte)(color.Alpha * coordOffset);
+        }
     }
 
     /// <summary>
@@ -120,12 +128,11 @@ public class Device
         // system starting in the center of the screen. Drawing normally
         // starts from the top left, so we need to transform again
         // to center the coords in the top left.
-        var x = point.X * bitMap.PixelWidth + bitMap.PixelWidth / 2f;
-        var y = -point.Y * bitMap.PixelHeight + bitMap.PixelHeight / 2f;
+        var x = point.X * renderWidth + renderWidth / 2f;
+        var y = -point.Y * renderHeight + renderHeight / 2f;
 
         return new Vector3(x, y, point.Z);
     }
-
     
     /// <summary>
     /// Calls PutPixel, with the addition of the clipping operation.
@@ -333,10 +340,10 @@ public class Device
     /// <param name="meshes">The array of meshes to be rendered.</param>
     public void Render(Camera camera, params Mesh[] meshes)
     {
-        var viewMatrix = matrixBuilder.BuildViewMatrix(camera);
+        var viewMatrix       = matrixBuilder.BuildViewMatrix(camera);
         var projectionMatrix = matrixBuilder.BuildProjectionMatrix(
           1.12f
-        , (float)(bitMap.PixelWidth / bitMap.Height)
+        , (float)(renderWidth / bitMap.Height)
         , 0.01f
         , 1f
         );
@@ -358,9 +365,9 @@ public class Device
                 DrawLine(point1, point2, mesh.Color);
             }
 
-            var faceIndex = 0;
-            foreach (var face in mesh.Faces)
+            Parallel.For(0, mesh.Faces.Length, faceIndex =>
             {
+                var face = mesh.Faces[faceIndex];
                 var vertexA = mesh.Vertices[face.A];
                 var vertexB = mesh.Vertices[face.B];
                 var vertexC = mesh.Vertices[face.C];
@@ -368,12 +375,12 @@ public class Device
                 var pixelA = Project(vertexA, transformationMatrix);
                 var pixelB = Project(vertexB, transformationMatrix);
                 var pixelC = Project(vertexC, transformationMatrix);
-                
+
                 // Wireframe lines.
                 DrawBLine(pixelA, pixelB, mesh.Color);
                 DrawBLine(pixelB, pixelC, mesh.Color);
                 DrawBLine(pixelC, pixelA, mesh.Color);
-                
+
                 // Drawing face triangles.
                 var color = .25f + (faceIndex % mesh.Faces.Length) * .75f / mesh.Faces.Length;
                 DrawTriangle(
@@ -384,7 +391,7 @@ public class Device
                 );
 
                 faceIndex++;
-            }
+            });
         }
     }
 }
