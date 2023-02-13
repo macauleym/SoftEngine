@@ -66,7 +66,7 @@ public partial class MainWindow : Window
         var currentFps = 1000.0 / (now - previousFrameTime).TotalMilliseconds;
         previousFrameTime = now;
 
-        fps.Text = string.Format($"{currentFps:0:0.00} FPS");
+        fps.Text = $"{currentFps:0.00} FPS";
     }
     
     void RenderLoop()
