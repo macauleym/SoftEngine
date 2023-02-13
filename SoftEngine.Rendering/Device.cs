@@ -267,15 +267,15 @@ public class Device
             (point2, point1) = (point1, point2);
 
         if (point2.Y > point3.Y)
-            (point3, point2) = (point2, point3);
+            (point2, point3) = (point3, point2);
 
-        if (point1.Y > point3.Y)
-            (point3, point1) = (point1, point3);
+        if (point1.Y > point2.Y)
+            (point2, point1) = (point1, point2);
         
         // Sorting done.
         // Now calculate inverse slopes.
-        float dPoint1Point2;
-        float dPoint1Point3;
+        float dPoint1Point2
+            , dPoint1Point3;
 
         if (point2.Y - point1.Y > 0)
             dPoint1Point2 = (point2.X - point1.X) / (point2.Y - point1.Y);
@@ -306,9 +306,21 @@ public class Device
         if (dPoint1Point2 > dPoint1Point3)
             for (var y = (int)point1.Y; y <= (int)point3.Y; y++)
                 if (y < point2.Y)
-                    ProcessScanLine(y, point1, point3, point1, point2, color);
+                    ProcessScanLine(
+                      y
+                    , point1
+                    , point3
+                    , point1
+                    , point2
+                    , color);
                 else
-                    ProcessScanLine(y, point1, point3, point2, point3, color);
+                    ProcessScanLine(
+                      y
+                    , point1
+                    , point3
+                    , point2
+                    , point3
+                    , color);
         // Case where points are as follows:
         /*             Point1
          *             -
@@ -326,10 +338,23 @@ public class Device
         else
             for (var y = (int)point1.Y; y <= (int)point3.Y; y++)
                 if (y < point2.Y)
-                    ProcessScanLine(y, point1, point2, point1, point3, color);
+                    ProcessScanLine(
+                      y
+                    , point1
+                    , point2
+                    , point1
+                    , point3
+                    , color
+                    );
                 else
-                    ProcessScanLine(y, point2, point3, point1, point3, color);
-                    
+                    ProcessScanLine(
+                      y
+                    , point2
+                    , point3
+                    , point1
+                    , point3
+                    , color
+                    );
     }
     
     /// <summary>
@@ -355,6 +380,7 @@ public class Device
             var worldMatrix = matrixBuilder.BuildWorldMatrix(mesh);
 
             var transformationMatrix = worldMatrix * viewMatrix * projectionMatrix;
+            /*
             for (var index = 0; index < mesh.Vertices.Length - 1; index++)
             {
                 // Project the 3D coordinates onto the 2D space.
@@ -364,6 +390,7 @@ public class Device
                 // Now draw the point onto the screen.
                 DrawLine(point1, point2, mesh.Color);
             }
+            */
 
             Parallel.For(0, mesh.Faces.Length, faceIndex =>
             {
@@ -377,9 +404,11 @@ public class Device
                 var pixelC = Project(vertexC, transformationMatrix);
 
                 // Wireframe lines.
+                /*
                 DrawBLine(pixelA, pixelB, mesh.Color);
                 DrawBLine(pixelB, pixelC, mesh.Color);
                 DrawBLine(pixelC, pixelA, mesh.Color);
+                */
 
                 // Drawing face triangles.
                 var color = .25f + (faceIndex % mesh.Faces.Length) * .75f / mesh.Faces.Length;

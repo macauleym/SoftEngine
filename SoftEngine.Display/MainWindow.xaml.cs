@@ -36,21 +36,24 @@ public partial class MainWindow : Window
         var defaultDpi  = 96;
         var pixelFormat = PixelFormats.Bgra32; 
         var bitMap      = new WriteableBitmap(
-              width
-            , height
-            , defaultDpi
-            , defaultDpi
-            , pixelFormat
-            , null
+          width
+        , height
+        , defaultDpi
+        , defaultDpi
+        , pixelFormat
+        , null
         );
 
         // The XAML Image control.
         // This is where the actual rendering will be pushed to.
         frontBuffer.Source = bitMap;
         
-        device     = new Device(bitMap, new LeftHandMatrixBuilder());
-        meshLoader = new MeshFileImporter();
-        meshes     = await meshLoader.LoadJsonFileAsync("torus.babylon");
+        device       = new Device(bitMap, new LeftHandMatrixBuilder());
+        meshLoader   = new MeshFileImporter();
+        
+        var torusBabylon = "torus.babylon";
+        var cubeBabylon  = "cube.babylon";
+        meshes           = await meshLoader.LoadJsonFileAsync(torusBabylon);
 
         camera = new()
         { Position = new Vector3(0, 0, 10f)
