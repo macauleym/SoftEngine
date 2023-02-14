@@ -10,7 +10,11 @@
     Loaded="Page_Loaded">
     
     <Grid>
-        <TextBlock x:Name="fps"></TextBlock>
-        <Image x:Name="frontBuffer" />
+        <StackPanel>
+            <TextBlock x:Name="fps"></TextBlock>
+            <TextBox x:Name="desiredMesh"></TextBox>
+            <Button Content="Apply Mesh" Click="Apply_Mesh_Click"></Button>
+            <Image x:Name="frontBuffer" />
+        </StackPanel>
     </Grid>
 </Window>

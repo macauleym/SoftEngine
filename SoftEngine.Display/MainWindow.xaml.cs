@@ -50,11 +50,8 @@ public partial class MainWindow : Window
         
         device       = new Device(bitMap, new LeftHandMatrixBuilder());
         meshLoader   = new MeshFileImporter();
+        meshes = Array.Empty<Mesh>();
         
-        var torusBabylon = "torus.babylon";
-        var cubeBabylon  = "cube.babylon";
-        meshes           = await meshLoader.LoadJsonFileAsync(torusBabylon);
-
         camera = new()
         { Position = new Vector3(0, 0, 10f)
         , Target   = Vector3.Zero
@@ -63,6 +60,11 @@ public partial class MainWindow : Window
         CompositionTarget.Rendering += CompositionTarget_Rendering;
     }
 
+    async void Apply_Mesh_Click(object sender, RoutedEventArgs routedEventArgs)
+    {
+        meshes = await meshLoader.LoadJsonFileAsync($"{desiredMesh.Text}.babylon");
+    }
+    
     void ComputeFps()
     {
         var now = DateTime.Now;
