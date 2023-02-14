@@ -53,8 +53,16 @@ public class MeshFileImporter : ILoadMesh
             var x = verticesArray[vertIndex * verticesStep    ];
             var y = verticesArray[vertIndex * verticesStep + 1];
             var z = verticesArray[vertIndex * verticesStep + 2];
+            
+            // Now load in the vertex normals, so we can calculate lighting.
+            var nx = verticesArray[vertIndex * verticesStep + 3];
+            var ny = verticesArray[vertIndex * verticesStep + 4];
+            var nz = verticesArray[vertIndex * verticesStep + 5];
 
-            mesh.Vertices[vertIndex] = new Vector3(x, y, z);
+            mesh.Vertices[vertIndex] = new()
+            { Coordinates = new Vector3(x, y, z)
+            , Normal      = new Vector3(nx, ny, nz)
+            };
         }
 
         // Now fill in the faces.
@@ -73,6 +81,9 @@ public class MeshFileImporter : ILoadMesh
     public async Task<Mesh[]> LoadJsonFileAsync(string fileName)
     {
         var file = $@"E:\GitHub\SoftEngine\Meshes\{fileName}";
+        if (!File.Exists(file))
+            return Array.Empty<Mesh>();
+        
         var data = await File.ReadAllTextAsync(file);
         var babylonModel = JsonConvert.DeserializeObject<BabylonModel>(data);
         if (babylonModel == null)

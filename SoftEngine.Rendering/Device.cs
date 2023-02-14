@@ -114,24 +114,34 @@ public class Device
     }
 
     /// <summary>
-    /// Transform 3D coordinates into 2D coordinates.
+    /// Transform the coordinates of a given vertex into 2D and 3D space.
+    /// Also transforms the normal of the vertex into 3D space.  
     /// </summary>
-    /// <param name="coord"></param>
-    /// <param name="transMatrix"></param>
-    /// <returns></returns>
-    public Vector3 Project(Vector3 coord, MatrixDX transMatrix)
+    /// <param name="vertex">The vertex to transform.</param>
+    /// <param name="transMatrix">The local matrix to transform to 2D space.</param>
+    /// <param name="worldMatrix">The world matrix to transform to 3D space.</param>
+    /// <returns>A new vertex with the transformed values.</returns>
+    public Vertex Project(Vertex vertex, MatrixDX transMatrix, MatrixDX worldMatrix)
     {
-        // Transform the coordinates.
-        var point = Vector3.TransformCoordinate(coord, transMatrix);
+        // Transform the coordinates into 2D space.
+        var point = Vector3.TransformCoordinate(vertex.Coordinates, transMatrix);
+        
+        // Transform the coordinates and the normals into 3D space.
+        var pointWorld = Vector3.TransformCoordinate(vertex.Coordinates, worldMatrix);
+        var normalWorld = Vector3.TransformCoordinate(vertex.Normal, worldMatrix);
         
         // Transformed coordinates will be based on a coordinate
         // system starting in the center of the screen. Drawing normally
         // starts from the top left, so we need to transform again
-        // to center the coords in the top left.
-        var x = point.X * renderWidth + renderWidth / 2f;
+        // to move from the center to the top left.
+        var x =  point.X * renderWidth  + renderWidth / 2f;
         var y = -point.Y * renderHeight + renderHeight / 2f;
 
-        return new Vector3(x, y, point.Z);
+        return new ()
+        { Coordinates      = new Vector3(x, y, point.Z)
+        , Normal           = normalWorld
+        , WorldCoordinates = pointWorld
+        };
     }
     
     /// <summary>
@@ -218,23 +228,28 @@ public class Device
     /// <param name="pointD"></param>
     /// <param name="color">Color to draw line as.</param>
     void ProcessScanLine(
-      int currentY
-    , Vector3 pointA
-    , Vector3 pointB
-    , Vector3 pointC
-    , Vector3 pointD
+      ScanLine line
+    , Vertex vertexA
+    , Vertex vertexB
+    , Vertex vertexC
+    , Vertex vertexD
     , Color4 color)
     {
+        var pointA = vertexA.Coordinates;
+        var pointB = vertexB.Coordinates;
+        var pointC = vertexC.Coordinates;
+        var pointD = vertexD.Coordinates;
+        
         // Using current Y, we can calculate the current gradiant.
         // This can be used to get the start and end X values
         // to draw between.
         // IF pointA.Y == pointB.Y OR pointC.Y == pointD.Y THEN
         // force the gradiant to be `1`.
         var gradiant1 = pointA.Y.CompareWith(pointB.Y, FloatComparison.NotEqual) 
-            ? (currentY - pointA.Y) / (pointB.Y - pointA.Y)
+            ? (line.CurrentY - pointA.Y) / (pointB.Y - pointA.Y)
             : 1;
         var gradiant2 = pointC.Y.CompareWith(pointD.Y, FloatComparison.NotEqual)
-            ? (currentY - pointC.Y) / (pointD.Y - pointC.Y)
+            ? (line.CurrentY - pointC.Y) / (pointD.Y - pointC.Y)
             : 1;
 
         var startX = (int)pointA.X.InterpolateTo(pointB.X, gradiant1);
@@ -250,44 +265,77 @@ public class Device
         {
             var gradiantZ = (currentX - startX) / (float)(endX - startX);
             var currentZ = startZ.InterpolateTo(endZ, gradiantZ);
-            DrawPoint(new Vector3(currentX, currentY, currentZ), color);
+            var normalDotLight = line.NormalDotLightA; 
+
+            // Since we now have the ability to calculate the dot product
+            // of the face normal and the light direction, we can use this
+            // to affect the color of the point to "shade" it. Right now, this
+            // is only flat shading.
+            DrawPoint(new Vector3(currentX, line.CurrentY, currentZ), color * normalDotLight);
         }
     }
 
+    float ComputeNormalDotLight(Vector3 vertex, Vector3 normal, Vector3 lightPosition)
+    {
+        var lightDirection = lightPosition - vertex;
+        
+        normal.Normalize();
+        lightDirection.Normalize();
+
+        return Math.Max(0, Vector3.Dot(normal, lightDirection));
+    }
+    
     public void DrawTriangle(
-      Vector3 point1
-    , Vector3 point2
-    , Vector3 point3
+      Vertex vertex1
+    , Vertex vertex2
+    , Vertex vertex3
+    , Vector3 lightPosition
     , Color4 color
     ) {
-        // Sorting the points in order always keeps point1, then 2, then 3.
-        // This keeps point1 always "up", giving it the lowest possible to
+        // Sorting the vertexs in order always keeps vertex1, then 2, then 3.
+        // This keeps vertex1 always "up", giving it the lowest possible to
         // be near the top of the screen.
-        if (point1.Y > point2.Y)
-            (point2, point1) = (point1, point2);
+        if (vertex1.Coordinates.Y > vertex2.Coordinates.Y)
+            (vertex2, vertex1) = (vertex1, vertex2);
 
-        if (point2.Y > point3.Y)
-            (point2, point3) = (point3, point2);
+        if (vertex2.Coordinates.Y > vertex3.Coordinates.Y)
+            (vertex2, vertex3) = (vertex3, vertex2);
 
-        if (point1.Y > point2.Y)
-            (point2, point1) = (point1, point2);
+        if (vertex1.Coordinates.Y > vertex2.Coordinates.Y)
+            (vertex2, vertex1) = (vertex1, vertex2);
         
-        // Sorting done.
+        var coords1 = vertex1.Coordinates;
+        var coords2 = vertex2.Coordinates;
+        var coords3 = vertex3.Coordinates;
+        
+        // The face's normal vector is the average of each vertex's normal.
+        // The center point is the average of the world coords.
+        var faceNormal = (vertex1.Normal + vertex2.Normal + vertex3.Normal) / 3;
+        var centerPoint = (vertex1.WorldCoordinates + vertex2.WorldCoordinates + vertex3.WorldCoordinates) / 3;
+        
+        // Get the dot product of the face normal and the light direction.
+        // As this will give us the dot product as a value between 0 and 1,
+        // we can use this to modify the intensity of the color of the face.
+        // This simulates the idea of "shading".
+        var normalDotLight = ComputeNormalDotLight(centerPoint, faceNormal, lightPosition);
+        var line = new ScanLine
+        { NormalDotLightA = normalDotLight
+        };
+
         // Now calculate inverse slopes.
         float dPoint1Point2
             , dPoint1Point3;
 
-        if (point2.Y - point1.Y > 0)
-            dPoint1Point2 = (point2.X - point1.X) / (point2.Y - point1.Y);
+        if (coords2.Y - coords1.Y > 0)
+            dPoint1Point2 = (coords2.X - coords1.X) / (coords2.Y - coords1.Y);
         else
             dPoint1Point2 = 0;
 
-        if (point3.Y - point1.Y > 0)
-            dPoint1Point3 = (point3.X - point1.X) / (point3.Y - point1.Y);
+        if (coords3.Y - coords1.Y > 0)
+            dPoint1Point3 = (coords3.X - coords1.X) / (coords3.Y - coords1.Y);
         else
             dPoint1Point3 = 0;
-        
-        
+
         // First case where triangles are as follows:
         /* Point1
          * -
@@ -304,24 +352,29 @@ public class Device
          * Point3
          */
         if (dPoint1Point2 > dPoint1Point3)
-            for (var y = (int)point1.Y; y <= (int)point3.Y; y++)
-                if (y < point2.Y)
+            for (var y = (int)coords1.Y; y <= (int)coords3.Y; y++)
+            {
+                line.CurrentY = y;
+                
+                if (y < coords2.Y)
                     ProcessScanLine(
-                      y
-                    , point1
-                    , point3
-                    , point1
-                    , point2
-                    , color);
+                        line
+                        , vertex1
+                        , vertex3
+                        , vertex1
+                        , vertex2
+                        , color);
                 else
                     ProcessScanLine(
-                      y
-                    , point1
-                    , point3
-                    , point2
-                    , point3
-                    , color);
-        // Case where points are as follows:
+                        line
+                        , vertex1
+                        , vertex3
+                        , vertex2
+                        , vertex3
+                        , color);
+            }
+
+        // Case where vertexs are as follows:
         /*             Point1
          *             -
          *            --
@@ -336,34 +389,39 @@ public class Device
          *        Point3 
          */
         else
-            for (var y = (int)point1.Y; y <= (int)point3.Y; y++)
-                if (y < point2.Y)
+            for (var y = (int)coords1.Y; y <= (int)coords3.Y; y++)
+            {
+                line.CurrentY = y;
+                
+                if (y < coords2.Y)
                     ProcessScanLine(
-                      y
-                    , point1
-                    , point2
-                    , point1
-                    , point3
-                    , color
+                        line
+                        , vertex1
+                        , vertex2
+                        , vertex1
+                        , vertex3
+                        , color
                     );
                 else
                     ProcessScanLine(
-                      y
-                    , point2
-                    , point3
-                    , point1
-                    , point3
-                    , color
+                        line
+                        , vertex2
+                        , vertex3
+                        , vertex1
+                        , vertex3
+                        , color
                     );
+            }
     }
-    
+
     /// <summary>
     /// Core method of the engine.
     /// Re-computes each vertex projection for each frame.
     /// </summary>
     /// <param name="camera">Camera that will act as the view into the scene.</param>
+    /// <param name="lightPosition"></param>
     /// <param name="meshes">The array of meshes to be rendered.</param>
-    public void Render(Camera camera, params Mesh[] meshes)
+    public void Render(Camera camera, Vector3 lightPosition, params Mesh[] meshes)
     {
         var viewMatrix       = matrixBuilder.BuildViewMatrix(camera);
         var projectionMatrix = matrixBuilder.BuildProjectionMatrix(
@@ -399,9 +457,9 @@ public class Device
                 var vertexB = mesh.Vertices[face.B];
                 var vertexC = mesh.Vertices[face.C];
 
-                var pixelA = Project(vertexA, transformationMatrix);
-                var pixelB = Project(vertexB, transformationMatrix);
-                var pixelC = Project(vertexC, transformationMatrix);
+                var pixelA = Project(vertexA, transformationMatrix, worldMatrix);
+                var pixelB = Project(vertexB, transformationMatrix, worldMatrix);
+                var pixelC = Project(vertexC, transformationMatrix, worldMatrix);
 
                 // Wireframe lines.
                 /*
@@ -416,6 +474,7 @@ public class Device
                   pixelA
                 , pixelB
                 , pixelC
+                , lightPosition
                 , new Color4(color, color, color, 1)
                 );
 

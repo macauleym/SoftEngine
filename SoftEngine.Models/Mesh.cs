@@ -6,7 +6,7 @@ public class Mesh
 {
     public string Name        { get; set; }
     public Color4 Color       { get; set; }
-    public Vector3[] Vertices { get; set; }
+    public Vertex[] Vertices { get; set; }
     public Face[] Faces       { get; set; }
     public Vector3 Position   { get; set; }
     public Vector3 Rotation   { get; set; }
@@ -19,7 +19,7 @@ public class Mesh
     {
         Name     = name;
         Color    = color;
-        Vertices = new Vector3[verticesCount];
+        Vertices = new Vertex[verticesCount];
         Faces    = new Face[facesCount];
     }
 }

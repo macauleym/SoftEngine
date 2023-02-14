@@ -12,8 +12,12 @@
     <Grid>
         <StackPanel>
             <TextBlock x:Name="fps"></TextBlock>
-            <TextBox x:Name="desiredMesh"></TextBox>
+            <TextBox x:Name="desiredMesh">Cube</TextBox>
             <Button Content="Apply Mesh" Click="Apply_Mesh_Click"></Button>
+            <TextBox x:Name="lightX">Light X Position</TextBox>
+            <TextBox x:Name="lightY">Light Y Position</TextBox>
+            <TextBox x:Name="lightZ">Light Z Position</TextBox>
+            <Button Content="Apply Light Position" Click="Apply_Light_Click"></Button>
             <Image x:Name="frontBuffer" />
         </StackPanel>
     </Grid>

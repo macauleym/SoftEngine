@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     Device device;
     Mesh[] meshes;
     Camera camera;
+    Vector3 lightPosition;
     DateTime previousFrameTime;
 
     ILoadMesh meshLoader;
@@ -48,9 +49,10 @@ public partial class MainWindow : Window
         // This is where the actual rendering will be pushed to.
         frontBuffer.Source = bitMap;
         
-        device       = new Device(bitMap, new LeftHandMatrixBuilder());
-        meshLoader   = new MeshFileImporter();
-        meshes = Array.Empty<Mesh>();
+        device        = new Device(bitMap, new LeftHandMatrixBuilder());
+        meshLoader    = new MeshFileImporter();
+        meshes        = Array.Empty<Mesh>();
+        lightPosition = Vector3.Zero;
         
         camera = new()
         { Position = new Vector3(0, 0, 10f)
@@ -63,6 +65,14 @@ public partial class MainWindow : Window
     async void Apply_Mesh_Click(object sender, RoutedEventArgs routedEventArgs)
     {
         meshes = await meshLoader.LoadJsonFileAsync($"{desiredMesh.Text}.babylon");
+    }
+
+    async void Apply_Light_Click(object sender, RoutedEventArgs routedEventArgs)
+    {
+        if (float.TryParse(lightX.Text, out var x)
+        &&  float.TryParse(lightY.Text, out var y)
+        &&  float.TryParse(lightZ.Text, out var z))
+            lightPosition = new Vector3(x, y, z);
     }
     
     void ComputeFps()
@@ -89,7 +99,7 @@ public partial class MainWindow : Window
         }
 
         // Do the require matrix transformations.
-        device.Render(camera, meshes);
+        device.Render(camera, lightPosition, meshes);
 
         // Flush the back buffer to the front.
         device.Present();
