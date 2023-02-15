@@ -9,7 +9,7 @@
     
     public static class FloatExtensions
     {
-        public static bool CompareWith(this float a, float b, FloatComparison comparison, float tolerance = 0.001f) =>
+        public static bool CompareWith(this float a, float b, FloatComparison comparison, float tolerance = 0) =>
             comparison switch
             {
                 FloatComparison.Greater  => a > b,

@@ -9,5 +9,12 @@ namespace SoftEngine.Core.Extensions
             && point.Y >= 0
             && point.X < xMax
             && point.Y < yMax;
+
+        public static Vector3 ToNormal(this Vector3 vector3)
+        {
+            vector3.Normalize();
+
+            return vector3;
+        }
     }
 }

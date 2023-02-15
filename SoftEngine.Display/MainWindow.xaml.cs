@@ -52,7 +52,11 @@ public partial class MainWindow : Window
         device        = new Device(bitMap, new LeftHandMatrixBuilder());
         meshLoader    = new MeshFileImporter();
         meshes        = Array.Empty<Mesh>();
+        
         lightPosition = Vector3.Zero;
+        lightX.Text = $"{lightPosition.X}";
+        lightY.Text = $"{lightPosition.Y}";
+        lightZ.Text = $"{lightPosition.Z}";
         
         camera = new()
         { Position = new Vector3(0, 0, 10f)
@@ -92,7 +96,7 @@ public partial class MainWindow : Window
         {
             // Rotating the mesh slightly during each frame.
             mesh.Rotation = new Vector3(
-              mesh.Rotation.X + 0.01f
+              mesh.Rotation.X// + 0.01f
             , mesh.Rotation.Y + 0.01f
             , mesh.Rotation.Z
             );
