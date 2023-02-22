@@ -146,7 +146,7 @@ public class Device
     /// </summary>
     /// <param name="point">Point to be drawn.</param>
     /// <param name="color">The color to draw the point as.</param>
-    public void DrawPoint(Vector3 point, Color4 color)
+    public void DrawPoint(ref Vector3 point, Color4 color)
     {
         if (point.IsInRangeOf(renderWidth, renderHeight))
             PutPixel(
@@ -173,10 +173,10 @@ public class Device
             return;
         
         // Find the midpoint.
-        Vector3 midPoint = point1 + (point2 - point1) / 2;
+        var midPoint = point1 + (point2 - point1) / 2;
         
         // Draw the midpoint.
-        DrawPoint(midPoint, color);
+        DrawPoint(ref midPoint, color);
         
         // Recursive operation between first and mid points,
         // and second and mid points.
@@ -205,7 +205,8 @@ public class Device
 
         for (;;)
         {
-            DrawPoint(new Vector3(x1, y1, point1.Z), color);
+            var vec = new Vector3(x1, y1, point1.Z);
+            DrawPoint(ref vec, color);
 
             if ((x1 == x2) && (y1 == y2))
                 break;
@@ -285,7 +286,8 @@ public class Device
             // Since we now have the ability to calculate the dot product
             // of the face normal and the light direction, we can use this
             // to affect the color of the point to "shade" it.
-            DrawPoint(new Vector3(currentX, line.CurrentY, currentZ), color * normalDotLight);
+            var vec = new Vector3(currentX, line.CurrentY, currentZ);
+            DrawPoint(ref vec, color * normalDotLight);
         }
     }
 
