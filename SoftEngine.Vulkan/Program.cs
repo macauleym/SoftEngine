@@ -14,6 +14,7 @@ using Silk.NET.Maths;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
 using Silk.NET.Windowing;
+using SoftEngine.Vulkan;
 
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -99,23 +100,6 @@ unsafe class HelloTriangleApplication
             , PfnUserCallback = (DebugUtilsMessengerCallbackFunctionEXT)DebugCallback
         };
     
-    (ExtDebugUtils? utils, DebugUtilsMessengerEXT? messenger) SetupDebugMessenger(Vk vk, Instance instance, bool enableValidationLayers)
-    {
-        if (!enableValidationLayers)
-            return (null, null);
-
-        if (!vk.TryGetInstanceExtension(instance, out ExtDebugUtils debugUtils))
-            throw new InvalidOperationException(
-                "Failed to set up the debug utils!");
-        
-        var createInfo = ConstructDebugCreateInfo();
-        if (debugUtils.CreateDebugUtilsMessenger(instance, in createInfo, null, out var debugMessenger) != Result.Success)
-            throw new InvalidOperationException(
-                "Failed to set up the debug messenger!");
-
-        return (debugUtils, debugMessenger);
-    }
-
     IWindow InitWindow(int width, int height)
     {
         var windowOptions = WindowOptions.DefaultVulkan with
@@ -187,6 +171,88 @@ unsafe class HelloTriangleApplication
         return (vulkanApi, vulkanInstance);
     }
 
+    (ExtDebugUtils? utils, DebugUtilsMessengerEXT? messenger) SetupDebugMessenger(Vk vk, Instance instance, bool enableValidationLayers)
+    {
+        if (!enableValidationLayers)
+            return (null, null);
+
+        if (!vk.TryGetInstanceExtension(instance, out ExtDebugUtils debugUtils))
+            throw new InvalidOperationException(
+                "Failed to set up the debug utils!");
+        
+        var createInfo = ConstructDebugCreateInfo();
+        if (debugUtils.CreateDebugUtilsMessenger(instance, in createInfo, null, out var debugMessenger) != Result.Success)
+            throw new InvalidOperationException(
+                "Failed to set up the debug messenger!");
+
+        return (debugUtils, debugMessenger);
+    }
+
+    bool IsDeviceSuitable(Vk api, PhysicalDevice device)
+    {
+        var isSuitable = true;
+        
+        // For querying properties.
+        PhysicalDeviceProperties deviceProperties;
+        api.GetPhysicalDeviceProperties(device, &deviceProperties);
+        
+        // For querying features.
+        PhysicalDeviceFeatures deviceFeatures;
+        api.GetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+        return isSuitable;
+    }
+
+    QueueFamilyIndices FindQueueFamilies(Vk api, PhysicalDevice device)
+    {
+        QueueFamilyIndices indices = new();
+
+        uint queueFamilyCount;
+        api.GetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, null);
+
+        // Same with any other array that we need to pass as a pointer:
+        // init the array, fix the array in memory, pass the fixed pointer. 
+        var queueFamilies = new QueueFamilyProperties[queueFamilyCount];
+        fixed (QueueFamilyProperties* queueFamiliesPtr = queueFamilies)
+        {
+            api.GetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamiliesPtr);
+        }
+        
+        
+
+        return indices;
+    }
+    
+    void PickPhysicalDevice(Vk api, Instance instance)
+    {
+        PhysicalDevice physicalDevice = new();
+        uint deviceCount = 0;
+        api.EnumeratePhysicalDevices(instance, &deviceCount, null);
+        if (deviceCount == 0)
+            throw new Exception(
+                "No GPUs found that support Vulkan!");
+
+        // Create a new array with the size of the devices.
+        // Next, fix the location of the array so we can pass 
+        // it as a parameter to the enumerate method.
+        var devices = new PhysicalDevice[deviceCount];
+        fixed (PhysicalDevice* devicesPointer = devices)
+        {
+            api.EnumeratePhysicalDevices(instance, &deviceCount, devicesPointer);
+        }
+
+        foreach (var device in devices)
+            if (IsDeviceSuitable(api, device))
+            {
+                physicalDevice = device;
+                break;
+            }
+
+        if (physicalDevice.Handle == 0)
+            throw new Exception(
+                "Failed to find a suitable GPU!");
+    }
+    
     (Vk api, Instance instance, ExtDebugUtils? debugUtils, DebugUtilsMessengerEXT? debugMessenger) InitVulkan(IWindow window, bool enableValidationLayers)
     {
         var (api, instance) = CreateInstance(window, enableValidationLayers);
