@@ -235,7 +235,7 @@ unsafe class HelloTriangleApplication
         return isSuitable && familyIndices.IsComplete();
     }
 
-    void PickPhysicalDevice(Vk api, Instance instance)
+    PhysicalDevice PickPhysicalDevice(Vk api, Instance instance)
     {
         PhysicalDevice physicalDevice = new();
         uint deviceCount = 0;
@@ -263,16 +263,59 @@ unsafe class HelloTriangleApplication
         if (physicalDevice.Handle == 0)
             throw new Exception(
                 "Failed to find a suitable GPU!");
+
+        return physicalDevice;
+    }
+
+    (Device logicalDevice, Queue graphicsQueue) CreateLogicalDevice(Vk api, PhysicalDevice physicalDevice, bool enableValidation)
+    {
+        var familyIndices = FindQueueFamilies(api, physicalDevice);
+
+        var queuePriority = 1f;
+        DeviceQueueCreateInfo queueCreateInfo = new()
+        { SType            = StructureType.DeviceQueueCreateInfo
+        , QueueFamilyIndex = familyIndices.GraphicsFamily!.Value
+        , QueueCount       = 1
+        , PQueuePriorities = &queuePriority
+        };
+
+        // TODO: Will be coming back here later when we do interesting things.
+        PhysicalDeviceFeatures deviceFeatures = new();
+        
+        DeviceCreateInfo createInfo = new()
+        { SType                = StructureType.DeviceCreateInfo
+        , PQueueCreateInfos    = &queueCreateInfo
+        , QueueCreateInfoCount = 1
+        , PEnabledFeatures     = &deviceFeatures
+        , EnabledExtensionCount = 0
+        };
+
+        if (enableValidation)
+        {
+            createInfo.EnabledLayerCount = (uint)validationLayers.Length;
+            createInfo.PpEnabledLayerNames = (byte**)SilkMarshal.StringArrayToPtr(validationLayers);
+        }
+        else
+            createInfo.EnabledLayerCount = 0;
+
+        if (api.CreateDevice(physicalDevice, &createInfo, null, out var device) != Result.Success)
+            throw new Exception(
+                "Failed to create the logical device!!");
+
+        api.GetDeviceQueue(
+          device
+        , familyIndices.GraphicsFamily.Value
+        , 0
+        , out var queue
+        );
+
+        if (enableValidation)
+            // Always remember to `Free()` whatever was `Marshal`'d. 
+            SilkMarshal.Free((nint)createInfo.PpEnabledLayerNames);
+        
+        return (device, queue);
     }
     
-    (Vk api, Instance instance, ExtDebugUtils? debugUtils, DebugUtilsMessengerEXT? debugMessenger) InitVulkan(IWindow window, bool enableValidationLayers)
-    {
-        var (api, instance) = CreateInstance(window, enableValidationLayers);
-        var (debugUtils, debugMessenger) = SetupDebugMessenger(api, instance, enableValidationLayers);
-
-        return (api, instance, debugUtils, debugMessenger);
-    }
-
     void MainLoop(IWindow window)
     {
         window.Run();
@@ -284,8 +327,11 @@ unsafe class HelloTriangleApplication
     , Vk vk
     , ExtDebugUtils? debugUtils
     , DebugUtilsMessengerEXT? debugMessenger
+    , Device device
     , bool enableValidationLayers)
     {
+        vk.DestroyDevice(device, null);
+        
         if (enableValidationLayers
         && debugUtils != null
         && debugMessenger.HasValue)
@@ -304,16 +350,19 @@ unsafe class HelloTriangleApplication
     public void Run(int windowWidth, int windowHeight, bool enableValidation)
     {
         var window = InitWindow(windowWidth, windowHeight);
-        var (vk, instance, debugUtils, debugMessenger) = 
-            InitVulkan(window, enableValidation);
+        var (api, instance) = CreateInstance(window, enableValidation);
+        var (debugUtils, debugMessenger) = SetupDebugMessenger(api, instance, enableValidation);
+        var physicalDevice = PickPhysicalDevice(api, instance);
+        var (logicalDevice, graphicsQueue) = CreateLogicalDevice(api, physicalDevice, enableValidation);
         
         MainLoop(window);
         Cleanup(
           window
         , instance
-        , vk
+        , api
         , debugUtils
         , debugMessenger
+        , logicalDevice
         , enableValidation
         );
     } 
