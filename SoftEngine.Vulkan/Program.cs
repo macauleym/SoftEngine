@@ -188,21 +188,6 @@ unsafe class HelloTriangleApplication
         return (debugUtils, debugMessenger);
     }
 
-    bool IsDeviceSuitable(Vk api, PhysicalDevice device)
-    {
-        var isSuitable = true;
-        
-        // For querying properties.
-        PhysicalDeviceProperties deviceProperties;
-        api.GetPhysicalDeviceProperties(device, &deviceProperties);
-        
-        // For querying features.
-        PhysicalDeviceFeatures deviceFeatures;
-        api.GetPhysicalDeviceFeatures(device, &deviceFeatures);
-
-        return isSuitable;
-    }
-
     QueueFamilyIndices FindQueueFamilies(Vk api, PhysicalDevice device)
     {
         QueueFamilyIndices indices = new();
@@ -217,12 +202,39 @@ unsafe class HelloTriangleApplication
         {
             api.GetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamiliesPtr);
         }
-        
-        
+
+        uint? familyIndex = 0;
+        foreach (var family in queueFamilies)
+        {
+            if (family.QueueFlags.HasFlag(QueueFlags.GraphicsBit))
+                indices.GraphicsFamily = familyIndex;
+
+            if (indices.IsComplete())
+                break;
+
+            familyIndex++;
+        }
 
         return indices;
     }
     
+    bool IsDeviceSuitable(Vk api, PhysicalDevice device)
+    {
+        var isSuitable = true;
+        
+        // For querying properties.
+        PhysicalDeviceProperties deviceProperties;
+        api.GetPhysicalDeviceProperties(device, &deviceProperties);
+        
+        // For querying features.
+        PhysicalDeviceFeatures deviceFeatures;
+        api.GetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+        var familyIndices = FindQueueFamilies(api, device);
+        
+        return isSuitable && familyIndices.IsComplete();
+    }
+
     void PickPhysicalDevice(Vk api, Instance instance)
     {
         PhysicalDevice physicalDevice = new();
